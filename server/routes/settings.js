@@ -21,9 +21,7 @@ router.put('/', (req, res) => {
     'partner2_name',
     'partner2_color',
     'wedding_title',
-    'wedding_date',
-    'budget_total',
-    'currency_symbol'
+    'wedding_date'
   ];
 
   const updates = req.body;

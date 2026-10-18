@@ -99,9 +99,6 @@ if (!getSetting('wedding_date')) {
   target.setMonth(target.getMonth() + 9);
   setSetting('wedding_date', target.toISOString().split('T')[0]);
 }
-if (!getSetting('budget_total')) {
-  setSetting('budget_total', '30000');
-}
 
 module.exports = {
   db,
