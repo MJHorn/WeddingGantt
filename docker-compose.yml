@@ -1,0 +1,21 @@
+services:
+  wedding-gantt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wedding-gantt
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/data
+      # Optional: set a default shared passphrase here, or set it via the web UI on first launch
+      - APP_PASSWORD=${APP_PASSWORD:-}
+    volumes:
+      - wedding_data:/data
+
+volumes:
+  wedding_data:
+    name: wedding_gantt_data

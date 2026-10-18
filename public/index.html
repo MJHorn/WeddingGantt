@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Our Wedding • Gantt Planner</title>
+  <meta name="description" content="Collaborative, interactive Gantt chart for couples planning their dream wedding.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/gantt.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-icon" title="Wedding Planner">💍</div>
+      <div>
+        <h1 class="brand-title" id="appBrandTitle">Our Wedding</h1>
+        <div class="wedding-countdown" id="weddingCountdownBadge">
+          <span id="weddingCountdownText">💍 Planning our Big Day</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button class="btn btn-primary" id="addTaskBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add Task
+      </button>
+
+      <button class="btn-icon" id="themeToggleBtn" title="Toggle Dark/Light Mode">
+        🌓
+      </button>
+
+      <button class="btn-icon" id="settingsBtn" title="Settings & Backup">
+        ⚙️
+      </button>
+    </div>
+  </header>
+
+  <!-- Sub-Header Toolbar: Filters -->
+  <section class="toolbar-section" aria-label="Toolbar filters">
+    <div class="toolbar-left">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" id="taskSearchInput" placeholder="Search tasks & notes..." />
+      </div>
+
+      <select class="select-filter" id="filterAssignee">
+        <option value="all">All Assignees</option>
+        <option value="partner1">Partner 1</option>
+        <option value="partner2">Partner 2</option>
+        <option value="both">Both Together</option>
+      </select>
+
+      <select class="select-filter" id="filterCategory">
+        <option value="all">All Categories</option>
+      </select>
+
+      <select class="select-filter" id="filterStatus">
+        <option value="all">All Statuses</option>
+        <option value="todo">To Do</option>
+        <option value="in_progress">In Progress</option>
+        <option value="done">Completed</option>
+      </select>
+    </div>
+  </section>
+
+  <!-- Main View Area: Gantt Timeline -->
+  <main class="app-main">
+    <div id="ganttViewContainer" style="display: flex; flex-direction: column; flex: 1; min-height: 0;"></div>
+  </main>
+
+  <!-- Task Create / Edit Modal -->
+  <div class="modal-overlay" id="taskModal">
+    <div class="modal-card modal-card-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span style="font-size: 1.4rem;">💍</span>
+          <h2 class="modal-title" id="taskModalTitle">Add New Task</h2>
+        </div>
+        <button class="btn-icon" data-action="close-modal" title="Close">✕</button>
+      </div>
+
+      <form id="taskForm" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="taskTitle">Task or Milestone Title *</label>
+            <input type="text" class="form-input" id="taskTitle" required placeholder="e.g. Book Wedding Photographer" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.35rem;">
+                <label class="form-label" for="taskCategory" style="margin-bottom:0;">Category</label>
+                <span id="taskCategoryBadgePreview" style="display:none;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:12px;"></span>
+              </div>
+              <input type="text" list="existingCategoriesList" class="form-input" id="taskCategory" placeholder="Type or pick any category (e.g. Venue, Music, Rings)..." autocomplete="off" />
+              <datalist id="existingCategoriesList"></datalist>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="taskAssignee">Assignee</label>
+              <select class="form-select" id="taskAssignee">
+                <option value="both" id="assigneeOptionBoth">Both of Us</option>
+                <option value="partner1" id="assigneeOptionP1">Partner 1</option>
+                <option value="partner2" id="assigneeOptionP2">Partner 2</option>
+                <option value="unassigned">Unassigned</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="taskStartDate">Start Date</label>
+              <input type="date" class="form-input" id="taskStartDate" required />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="taskEndDate">End Date / Due Date</label>
+              <input type="date" class="form-input" id="taskEndDate" required />
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:0.5rem;padding:0.25rem 0;">
+            <input type="checkbox" id="taskIsMilestone" style="width:16px;height:16px;cursor:pointer;" />
+            <label for="taskIsMilestone" style="font-size:0.85rem;font-weight:600;cursor:pointer;">
+              Mark as Milestone (Key milestone on timeline diamond)
+            </label>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="taskStatus">Status</label>
+              <select class="form-select" id="taskStatus">
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Completed</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="taskPriority">Priority</label>
+              <select class="form-select" id="taskPriority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display:flex;justify-content:space-between;">
+              <label class="form-label" for="taskProgress">Progress</label>
+              <span id="taskProgressVal" style="font-size:0.8rem;font-weight:600;">0%</span>
+            </div>
+            <input type="range" min="0" max="100" step="5" value="0" id="taskProgress" oninput="document.getElementById('taskProgressVal').textContent = this.value + '%'" />
+          </div>
+
+          <!-- Checklist -->
+          <div class="form-group">
+            <label class="form-label">Sub-Tasks / Checklist</label>
+            <div class="checklist-builder">
+              <div class="checklist-items-list" id="checklistItemsContainer"></div>
+              <div class="checklist-add-row">
+                <input type="text" class="form-input" id="newChecklistInput" placeholder="Add a checklist item (press Enter)..." style="font-size:0.85rem;" />
+                <button type="button" class="btn btn-secondary" id="addChecklistItemBtn" style="padding:0.4rem 0.8rem;font-size:0.8rem;">Add</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dependencies -->
+          <div class="form-group">
+            <label class="form-label">Dependencies (Predecessor Tasks)</label>
+            <div id="taskDependenciesContainer" style="max-height:110px;overflow-y:auto;display:flex;flex-direction:column;gap:0.4rem;padding:0.5rem;background:var(--bg-surface-alt);border-radius:var(--radius-md);border:1px solid var(--border-subtle);"></div>
+            <span class="form-help">Tasks that must be completed before or directly linked to this task.</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="taskNotes">Notes / Vendor Contacts / Links</label>
+            <textarea class="form-textarea" id="taskNotes" placeholder="Vendor contact info, payment schedules, or thoughts..."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="deleteTaskBtn" style="margin-right:auto;color:#C4576C;">
+            Delete Task
+          </button>
+          <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Settings & Preferences Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span style="font-size: 1.3rem;">⚙️</span>
+          <h2 class="modal-title">Settings & Planning Details</h2>
+        </div>
+        <button class="btn-icon" data-action="close-modal" title="Close">✕</button>
+      </div>
+
+      <form id="settingsForm">
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label" for="settingWeddingTitle">Wedding Title</label>
+            <input type="text" class="form-input" id="settingWeddingTitle" placeholder="e.g. Alex & Taylor's Wedding" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="settingWeddingDate">Target Wedding Date</label>
+            <input type="date" class="form-input" id="settingWeddingDate" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label" for="settingPartner1Name">Partner 1 Name</label>
+              <input type="text" class="form-input" id="settingPartner1Name" placeholder="e.g. Alex" />
+              <input type="color" id="settingPartner1Color" value="#D46A80" style="margin-top:4px;height:28px;width:100%;cursor:pointer;" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="settingPartner2Name">Partner 2 Name</label>
+              <input type="text" class="form-input" id="settingPartner2Name" placeholder="e.g. Taylor" />
+              <input type="color" id="settingPartner2Color" value="#437C90" style="margin-top:4px;height:28px;width:100%;cursor:pointer;" />
+            </div>
+          </div>
+
+          <!-- Change Passphrase -->
+          <div style="padding-top:0.5rem;border-top:1px solid var(--border-subtle);">
+            <label class="form-label">Change Shared Passphrase (Optional)</label>
+            <div class="form-row" style="margin-top:0.4rem;">
+              <input type="password" class="form-input" id="settingCurrentPassword" placeholder="Current passphrase" />
+              <input type="password" class="form-input" id="settingNewPassword" placeholder="New passphrase" />
+            </div>
+          </div>
+
+          <!-- Backup & Data Management -->
+          <div style="padding-top:0.75rem;border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:0.75rem;">
+            <label class="form-label">Data Backup & Export</label>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary" id="exportBackupBtn">
+                📥 Download JSON Backup
+              </button>
+              <button type="button" class="btn btn-secondary" id="exportCsvBtn">
+                📊 Export CSV
+              </button>
+              <label class="btn btn-secondary" style="cursor:pointer;">
+                📤 Restore Backup
+                <input type="file" id="restoreFileInput" accept=".json" style="display:none;" />
+              </label>
+            </div>
+          </div>
+
+          <div style="padding-top:0.5rem;border-top:1px solid var(--border-subtle);">
+            <button type="button" class="btn btn-secondary" id="clearAllTasksBtn" style="color:#C4576C;font-size:0.8rem;">
+              🗑️ Reset All Tasks (Clean Slate)
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-action="close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Passphrase / Auth Overlay -->
+  <div class="auth-container" id="authOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;pointer-events:none;">
+    <div class="auth-card">
+      <div class="auth-ring-icon">💍</div>
+      <h2 class="auth-title" id="authTitle">Wedding Planner</h2>
+      <p class="auth-subtitle" id="authSubtitle">
+        Enter your shared wedding passphrase to continue planning together.
+      </p>
+
+      <form id="authForm" style="display:flex;flex-direction:column;gap:1rem;">
+        <div class="form-group">
+          <input type="password" class="form-input" id="authPasswordInput" required placeholder="Enter shared passphrase..." style="text-align:center;font-size:1.1rem;padding:0.75rem;" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="authSubmitBtn" style="padding:0.75rem;font-size:1rem;">
+          Unlock Planner
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Root -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/state.js"></script>
+  <script src="/js/gantt.js"></script>
+  <script src="/js/task-modal.js"></script>
+  <script src="/js/settings-modal.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

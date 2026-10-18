@@ -1,0 +1,17 @@
+{
+  "name": "wedding-gantt",
+  "version": "1.0.0",
+  "description": "A collaborative Gantt chart app designed for wedding planning",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node --experimental-sqlite server/index.js",
+    "dev": "node --experimental-sqlite server/index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
