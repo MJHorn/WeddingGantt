@@ -45,6 +45,19 @@ class WeddingGanttApp {
           } catch (err) {
             showToast(err.message, 'error');
           }
+        },
+        onReorderTasks: async (newOrderedTasks) => {
+          try {
+            AppState.setTasks(newOrderedTasks);
+            const items = newOrderedTasks.map((t, idx) => ({
+              id: t.id,
+              category: t.category,
+              sort_order: idx * 10
+            }));
+            await API.reorderTasks(items);
+          } catch (err) {
+            showToast(err.message, 'error');
+          }
         }
       });
     }

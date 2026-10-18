@@ -21,9 +21,10 @@ class GanttChart {
     window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
   }
 
-  setCallbacks({ onRowClick, onTaskChange }) {
+  setCallbacks({ onRowClick, onTaskChange, onReorderTasks }) {
     this.onRowClick = onRowClick;
     this.onTaskChange = onTaskChange;
+    this.onReorderTasks = onReorderTasks;
   }
 
   // Calculate timeline date range based on tasks, today, and wedding date
@@ -230,6 +231,16 @@ class GanttChart {
         return `
           <div class="gantt-row gantt-row-category" data-category="${row.title}" style="height: ${this.rowHeight}px;">
             <div class="sidebar-row-content">
+              <div class="category-drag-handle" draggable="true" title="Drag to reorder category">
+                <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
+                  <circle cx="2" cy="2" r="1.2"/>
+                  <circle cx="6" cy="2" r="1.2"/>
+                  <circle cx="2" cy="6" r="1.2"/>
+                  <circle cx="6" cy="6" r="1.2"/>
+                  <circle cx="2" cy="10" r="1.2"/>
+                  <circle cx="6" cy="10" r="1.2"/>
+                </svg>
+              </div>
               <span class="category-toggle-icon ${row.isCollapsed ? 'collapsed' : ''}">▼</span>
               <span class="category-color-dot" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${catColor.primary};margin-right:0.45rem;flex-shrink:0;"></span>
               <span style="flex:1;font-weight:600;">${row.title}</span>
@@ -251,6 +262,16 @@ class GanttChart {
       return `
         <div class="gantt-row" data-task-id="${t.id}" style="height: ${this.rowHeight}px;">
           <div class="sidebar-row-content">
+            <div class="task-drag-handle" draggable="true" title="Drag to reorder task">
+              <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
+                <circle cx="2" cy="2" r="1.2"/>
+                <circle cx="6" cy="2" r="1.2"/>
+                <circle cx="2" cy="6" r="1.2"/>
+                <circle cx="6" cy="6" r="1.2"/>
+                <circle cx="2" cy="10" r="1.2"/>
+                <circle cx="6" cy="10" r="1.2"/>
+              </svg>
+            </div>
             <div class="task-checkbox ${isDone ? 'completed' : ''}" data-action="toggle-complete" title="Mark done">
               ${isDone ? '✓' : ''}
             </div>
@@ -453,7 +474,8 @@ class GanttChart {
     // Category folding
     const catRows = this.container.querySelectorAll('.gantt-row-category[data-category]');
     catRows.forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('.category-drag-handle')) return;
         const cat = el.getAttribute('data-category');
         if (this.collapsedCategories.has(cat)) {
           this.collapsedCategories.delete(cat);
@@ -463,6 +485,183 @@ class GanttChart {
         this.render(AppState.getFilteredTasks(), AppState.settings.wedding_date);
       });
     });
+
+    // Drag-and-drop reordering for Tasks and Categories in the sidebar
+    const sidebarBody = document.getElementById('ganttSidebarBody');
+    if (sidebarBody) {
+      let draggedType = null;
+      let draggedId = null;
+      let draggedRowEl = null;
+
+      const clearDropIndicators = () => {
+        sidebarBody.querySelectorAll('.gantt-row').forEach(r => {
+          r.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-category', 'dragging');
+        });
+      };
+
+      // Task Drag Handle Listeners
+      sidebarBody.querySelectorAll('.task-drag-handle').forEach(handle => {
+        handle.addEventListener('dragstart', (e) => {
+          const row = handle.closest('.gantt-row[data-task-id]');
+          if (!row) return;
+          draggedType = 'task';
+          draggedId = row.getAttribute('data-task-id');
+          draggedRowEl = row;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', draggedId);
+        });
+      });
+
+      // Category Drag Handle Listeners
+      sidebarBody.querySelectorAll('.category-drag-handle').forEach(handle => {
+        handle.addEventListener('dragstart', (e) => {
+          const row = handle.closest('.gantt-row-category[data-category]');
+          if (!row) return;
+          draggedType = 'category';
+          draggedId = row.getAttribute('data-category');
+          draggedRowEl = row;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', draggedId);
+        });
+      });
+
+      sidebarBody.addEventListener('dragover', (e) => {
+        if (!draggedId) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+
+        const targetRow = e.target.closest('.gantt-row');
+        if (!targetRow || targetRow === draggedRowEl) {
+          sidebarBody.querySelectorAll('.gantt-row').forEach(r => {
+            if (r !== draggedRowEl) r.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-category');
+          });
+          return;
+        }
+
+        const rect = targetRow.getBoundingClientRect();
+        const relY = e.clientY - rect.top;
+        const isTop = relY < rect.height / 2;
+
+        sidebarBody.querySelectorAll('.gantt-row').forEach(r => {
+          if (r !== targetRow && r !== draggedRowEl) {
+            r.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-category');
+          }
+        });
+
+        if (draggedType === 'task') {
+          if (targetRow.classList.contains('gantt-row-category')) {
+            targetRow.classList.add('drag-over-category');
+            targetRow.classList.remove('drag-over-top', 'drag-over-bottom');
+          } else {
+            targetRow.classList.remove('drag-over-category');
+            targetRow.classList.toggle('drag-over-top', isTop);
+            targetRow.classList.toggle('drag-over-bottom', !isTop);
+          }
+        } else if (draggedType === 'category') {
+          if (targetRow.classList.contains('gantt-row-category')) {
+            targetRow.classList.toggle('drag-over-top', isTop);
+            targetRow.classList.toggle('drag-over-bottom', !isTop);
+          }
+        }
+      });
+
+      sidebarBody.addEventListener('dragend', () => {
+        clearDropIndicators();
+        draggedType = null;
+        draggedId = null;
+        draggedRowEl = null;
+      });
+
+      sidebarBody.addEventListener('drop', (e) => {
+        if (!draggedId) return;
+        e.preventDefault();
+
+        const targetRow = e.target.closest('.gantt-row');
+        if (!targetRow || targetRow === draggedRowEl) {
+          clearDropIndicators();
+          return;
+        }
+
+        const rect = targetRow.getBoundingClientRect();
+        const relY = e.clientY - rect.top;
+        const isTop = relY < rect.height / 2;
+        const allTasks = [...AppState.tasks];
+
+        if (draggedType === 'task') {
+          const draggedTask = allTasks.find(t => t.id === draggedId);
+          if (!draggedTask) {
+            clearDropIndicators();
+            return;
+          }
+
+          if (targetRow.classList.contains('gantt-row-category')) {
+            // Dropped onto category header -> place at the beginning of that category
+            const targetCat = targetRow.getAttribute('data-category');
+            draggedTask.category = targetCat;
+
+            const remaining = allTasks.filter(t => t.id !== draggedId);
+            const firstInCat = remaining.findIndex(t => (t.category || 'General') === targetCat);
+            const insertIdx = firstInCat !== -1 ? firstInCat : remaining.length;
+            remaining.splice(insertIdx, 0, draggedTask);
+
+            remaining.forEach((t, i) => { t.sort_order = i * 10; });
+            clearDropIndicators();
+            if (this.onReorderTasks) this.onReorderTasks(remaining);
+          } else {
+            // Dropped onto another task row
+            const targetTaskId = targetRow.getAttribute('data-task-id');
+            const targetTask = allTasks.find(t => t.id === targetTaskId);
+            if (!targetTask) {
+              clearDropIndicators();
+              return;
+            }
+
+            // Adopt target task's category
+            draggedTask.category = targetTask.category;
+
+            const remaining = allTasks.filter(t => t.id !== draggedId);
+            const targetIdx = remaining.findIndex(t => t.id === targetTaskId);
+            const insertIdx = isTop ? targetIdx : targetIdx + 1;
+            remaining.splice(insertIdx, 0, draggedTask);
+
+            remaining.forEach((t, i) => { t.sort_order = i * 10; });
+            clearDropIndicators();
+            if (this.onReorderTasks) this.onReorderTasks(remaining);
+          }
+        } else if (draggedType === 'category') {
+          // Reorder entire category
+          if (targetRow.classList.contains('gantt-row-category')) {
+            const targetCat = targetRow.getAttribute('data-category');
+            if (targetCat && targetCat !== draggedId) {
+              const catTasks = allTasks.filter(t => (t.category || 'General') === draggedId);
+              const otherTasks = allTasks.filter(t => (t.category || 'General') !== draggedId);
+
+              let insertIdx = otherTasks.findIndex(t => (t.category || 'General') === targetCat);
+              if (!isTop) {
+                let targetLastIdx = -1;
+                for (let i = otherTasks.length - 1; i >= 0; i--) {
+                  if ((otherTasks[i].category || 'General') === targetCat) {
+                    targetLastIdx = i;
+                    break;
+                  }
+                }
+                insertIdx = targetLastIdx !== -1 ? targetLastIdx + 1 : otherTasks.length;
+              }
+              if (insertIdx === -1) insertIdx = otherTasks.length;
+
+              otherTasks.splice(insertIdx, 0, ...catTasks);
+              otherTasks.forEach((t, i) => { t.sort_order = i * 10; });
+              clearDropIndicators();
+              if (this.onReorderTasks) this.onReorderTasks(otherTasks);
+            }
+          }
+        }
+
+        clearDropIndicators();
+      });
+    }
 
     const collapseAllBtn = document.getElementById('ganttCollapseAllBtn');
     if (collapseAllBtn) {

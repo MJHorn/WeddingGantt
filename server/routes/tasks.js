@@ -202,15 +202,31 @@ router.delete('/:id', (req, res) => {
 // Reorder tasks
 router.post('/reorder', (req, res) => {
   try {
-    const { orderedIds } = req.body;
+    const { orderedIds, items } = req.body;
+    if (Array.isArray(items)) {
+      const stmt = db.prepare('UPDATE tasks SET sort_order = ?, category = COALESCE(?, category) WHERE id = ?');
+      const updateBatch = db.transaction((list) => {
+        list.forEach((item, index) => {
+          const cat = item.category !== undefined ? item.category : null;
+          const order = item.sort_order !== undefined ? item.sort_order : index * 10;
+          stmt.run(order, cat, item.id);
+        });
+      });
+      updateBatch(items);
+      return res.json({ success: true });
+    }
+
     if (!Array.isArray(orderedIds)) {
-      return res.status(400).json({ error: 'orderedIds must be an array of task IDs.' });
+      return res.status(400).json({ error: 'orderedIds or items must be an array.' });
     }
 
     const stmt = db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?');
-    orderedIds.forEach((id, index) => {
-      stmt.run(index * 10, id);
+    const updateBatch = db.transaction((ids) => {
+      ids.forEach((id, index) => {
+        stmt.run(index * 10, id);
+      });
     });
+    updateBatch(orderedIds);
 
     res.json({ success: true });
   } catch (e) {

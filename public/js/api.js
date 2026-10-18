@@ -116,10 +116,13 @@ const API = {
     });
   },
 
-  async reorderTasks(orderedIds) {
+  async reorderTasks(payload) {
+    const body = Array.isArray(payload)
+      ? (typeof payload[0] === 'string' ? { orderedIds: payload } : { items: payload })
+      : payload;
     return await this.request('/api/tasks/reorder', {
       method: 'POST',
-      body: JSON.stringify({ orderedIds })
+      body: JSON.stringify(body)
     });
   },
 

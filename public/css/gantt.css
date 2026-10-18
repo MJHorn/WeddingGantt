@@ -314,6 +314,53 @@
   transform: rotate(-90deg);
 }
 
+/* Drag to Reorder */
+.task-drag-handle,
+.category-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  margin-right: -2px;
+  border-radius: var(--radius-sm);
+  opacity: 0.35;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.task-drag-handle:hover,
+.category-drag-handle:hover {
+  opacity: 1;
+  color: var(--text-primary);
+}
+
+.task-drag-handle:active,
+.category-drag-handle:active {
+  cursor: grabbing;
+}
+
+.gantt-sidebar .gantt-row.dragging {
+  opacity: 0.35;
+  background-color: var(--color-primary-light) !important;
+}
+
+.gantt-sidebar .gantt-row.drag-over-top {
+  border-top: 2.5px solid var(--color-primary) !important;
+}
+
+.gantt-sidebar .gantt-row.drag-over-bottom {
+  border-bottom: 2.5px solid var(--color-primary) !important;
+}
+
+.gantt-sidebar .gantt-row-category.drag-over-category {
+  background-color: var(--color-primary-light) !important;
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
 /* Sidebar Row Content */
 .sidebar-row-content {
   display: flex;
