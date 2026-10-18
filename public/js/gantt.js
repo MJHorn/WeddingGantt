@@ -148,7 +148,7 @@ class GanttChart {
           </div>
           <div class="gantt-sidebar-body" id="ganttSidebarBody">
             ${this.renderSidebarRows()}
-            <div style="height: 24px;"></div>
+            <div style="height: 36px;"></div>
           </div>
         </div>
 
@@ -174,7 +174,7 @@ class GanttChart {
                 ${this.renderTimelineRows()}
               </div>
             </div>
-            <div style="height: 24px;"></div>
+            <div style="height: 36px;"></div>
           </div>
         </div>
       </div>
@@ -398,30 +398,18 @@ class GanttChart {
     const timelineHeader = document.getElementById('ganttTimelineHeaderContainer');
 
     if (sidebar && timelineBody) {
-      let activeScroller = null;
-      let clearScrollerTimer = null;
-
-      const setActive = (el) => {
-        activeScroller = el;
-        if (clearScrollerTimer) clearTimeout(clearScrollerTimer);
-        clearScrollerTimer = setTimeout(() => {
-          activeScroller = null;
-        }, 150);
-      };
-
-      sidebar.addEventListener('pointerenter', () => setActive(sidebar));
-      sidebar.addEventListener('wheel', () => setActive(sidebar), { passive: true });
-      sidebar.addEventListener('touchstart', () => setActive(sidebar), { passive: true });
-
-      timelineBody.addEventListener('pointerenter', () => setActive(timelineBody));
-      timelineBody.addEventListener('wheel', () => setActive(timelineBody), { passive: true });
-      timelineBody.addEventListener('touchstart', () => setActive(timelineBody), { passive: true });
+      let scrollDriver = null;
+      let rAF = null;
 
       sidebar.addEventListener('scroll', () => {
         this.lastScrollTop = sidebar.scrollTop;
-        if (activeScroller !== timelineBody) {
-          timelineBody.scrollTop = sidebar.scrollTop;
-        }
+        if (scrollDriver === timelineBody) return;
+        scrollDriver = sidebar;
+        timelineBody.scrollTop = sidebar.scrollTop;
+        if (rAF) cancelAnimationFrame(rAF);
+        rAF = requestAnimationFrame(() => {
+          scrollDriver = null;
+        });
       }, { passive: true });
 
       timelineBody.addEventListener('scroll', () => {
@@ -433,9 +421,13 @@ class GanttChart {
           timelineHeader.scrollLeft = timelineBody.scrollLeft;
         }
 
-        if (activeScroller !== sidebar) {
-          sidebar.scrollTop = timelineBody.scrollTop;
-        }
+        if (scrollDriver === sidebar) return;
+        scrollDriver = timelineBody;
+        sidebar.scrollTop = timelineBody.scrollTop;
+        if (rAF) cancelAnimationFrame(rAF);
+        rAF = requestAnimationFrame(() => {
+          scrollDriver = null;
+        });
       }, { passive: true });
     }
 
