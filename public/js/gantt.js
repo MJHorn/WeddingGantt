@@ -419,9 +419,6 @@ class GanttChart {
     const timelineHeader = document.getElementById('ganttTimelineHeaderContainer');
 
     if (sidebar && timelineBody) {
-      let scrollDriver = null;
-      let rAF = null;
-
       // Ensure identical scroll headroom by matching horizontal scrollbar height
       const syncHeadroom = () => {
         const scrollbarH = timelineBody.offsetHeight - timelineBody.clientHeight;
@@ -432,35 +429,14 @@ class GanttChart {
       };
       syncHeadroom();
 
-      // Guard against elastic bounce / rubberband desync at top and bottom boundaries
-      const handleBoundaryWheel = (e, container) => {
-        const maxScroll = container.scrollHeight - container.clientHeight;
-        const isAtTop = container.scrollTop <= 0 && e.deltaY < 0;
-        const isAtBottom = container.scrollTop >= maxScroll - 1 && e.deltaY > 0;
-        if (isAtTop || isAtBottom) {
-          e.preventDefault();
-          const targetY = isAtTop ? 0 : maxScroll;
-          sidebar.scrollTop = targetY;
-          timelineBody.scrollTop = targetY;
-        }
-      };
-
-      sidebar.addEventListener('wheel', (e) => handleBoundaryWheel(e, sidebar), { passive: false });
-      timelineBody.addEventListener('wheel', (e) => handleBoundaryWheel(e, timelineBody), { passive: false });
-
       sidebar.addEventListener('scroll', () => {
         this.lastScrollTop = sidebar.scrollTop;
-        if (scrollDriver === timelineBody) return;
-        scrollDriver = sidebar;
-
-        const maxRight = timelineBody.scrollHeight - timelineBody.clientHeight;
-        const clampedY = Math.max(0, Math.min(sidebar.scrollTop, maxRight));
-        timelineBody.scrollTop = clampedY;
-
-        if (rAF) cancelAnimationFrame(rAF);
-        rAF = requestAnimationFrame(() => {
-          scrollDriver = null;
-        });
+        if (sidebar._programmaticScroll) {
+          sidebar._programmaticScroll = false;
+          return;
+        }
+        timelineBody._programmaticScroll = true;
+        timelineBody.scrollTop = sidebar.scrollTop;
       }, { passive: true });
 
       timelineBody.addEventListener('scroll', () => {
@@ -472,17 +448,12 @@ class GanttChart {
           timelineHeader.scrollLeft = timelineBody.scrollLeft;
         }
 
-        if (scrollDriver === sidebar) return;
-        scrollDriver = timelineBody;
-
-        const maxLeft = sidebar.scrollHeight - sidebar.clientHeight;
-        const clampedY = Math.max(0, Math.min(timelineBody.scrollTop, maxLeft));
-        sidebar.scrollTop = clampedY;
-
-        if (rAF) cancelAnimationFrame(rAF);
-        rAF = requestAnimationFrame(() => {
-          scrollDriver = null;
-        });
+        if (timelineBody._programmaticScroll) {
+          timelineBody._programmaticScroll = false;
+          return;
+        }
+        sidebar._programmaticScroll = true;
+        sidebar.scrollTop = timelineBody.scrollTop;
       }, { passive: true });
     }
 
