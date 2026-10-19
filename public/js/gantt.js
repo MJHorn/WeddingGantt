@@ -149,7 +149,7 @@ class GanttChart {
           </div>
           <div class="gantt-sidebar-body" id="ganttSidebarBody">
             ${this.renderSidebarRows()}
-            <div style="height: 36px;"></div>
+            <div id="ganttSidebarSpacer" style="height: 36px;"></div>
           </div>
         </div>
 
@@ -175,7 +175,7 @@ class GanttChart {
                 ${this.renderTimelineRows()}
               </div>
             </div>
-            <div style="height: 36px;"></div>
+            <div id="ganttTimelineSpacer" style="height: 36px;"></div>
           </div>
         </div>
       </div>
@@ -422,11 +422,41 @@ class GanttChart {
       let scrollDriver = null;
       let rAF = null;
 
+      // Ensure identical scroll headroom by matching horizontal scrollbar height
+      const syncHeadroom = () => {
+        const scrollbarH = timelineBody.offsetHeight - timelineBody.clientHeight;
+        const sidebarSpacer = document.getElementById('ganttSidebarSpacer');
+        if (sidebarSpacer) {
+          sidebarSpacer.style.height = `${36 + Math.max(0, scrollbarH)}px`;
+        }
+      };
+      syncHeadroom();
+
+      // Guard against elastic bounce / rubberband desync at top and bottom boundaries
+      const handleBoundaryWheel = (e, container) => {
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        const isAtTop = container.scrollTop <= 0 && e.deltaY < 0;
+        const isAtBottom = container.scrollTop >= maxScroll - 1 && e.deltaY > 0;
+        if (isAtTop || isAtBottom) {
+          e.preventDefault();
+          const targetY = isAtTop ? 0 : maxScroll;
+          sidebar.scrollTop = targetY;
+          timelineBody.scrollTop = targetY;
+        }
+      };
+
+      sidebar.addEventListener('wheel', (e) => handleBoundaryWheel(e, sidebar), { passive: false });
+      timelineBody.addEventListener('wheel', (e) => handleBoundaryWheel(e, timelineBody), { passive: false });
+
       sidebar.addEventListener('scroll', () => {
         this.lastScrollTop = sidebar.scrollTop;
         if (scrollDriver === timelineBody) return;
         scrollDriver = sidebar;
-        timelineBody.scrollTop = sidebar.scrollTop;
+
+        const maxRight = timelineBody.scrollHeight - timelineBody.clientHeight;
+        const clampedY = Math.max(0, Math.min(sidebar.scrollTop, maxRight));
+        timelineBody.scrollTop = clampedY;
+
         if (rAF) cancelAnimationFrame(rAF);
         rAF = requestAnimationFrame(() => {
           scrollDriver = null;
@@ -444,7 +474,11 @@ class GanttChart {
 
         if (scrollDriver === sidebar) return;
         scrollDriver = timelineBody;
-        sidebar.scrollTop = timelineBody.scrollTop;
+
+        const maxLeft = sidebar.scrollHeight - sidebar.clientHeight;
+        const clampedY = Math.max(0, Math.min(timelineBody.scrollTop, maxLeft));
+        sidebar.scrollTop = clampedY;
+
         if (rAF) cancelAnimationFrame(rAF);
         rAF = requestAnimationFrame(() => {
           scrollDriver = null;

@@ -6,6 +6,8 @@
   position: relative;
   overflow: hidden;
   background-color: var(--bg-surface);
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 /* Left Panel: Task List / Hierarchy */
@@ -19,6 +21,8 @@
   background-color: var(--bg-surface);
   z-index: 10;
   flex-shrink: 0;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 .gantt-sidebar-header {
@@ -40,7 +44,8 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 /* Split Pane Resizer */
@@ -65,6 +70,8 @@
   overflow: hidden;
   background-color: var(--bg-app);
   position: relative;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 .gantt-timeline-header-container {
@@ -82,7 +89,8 @@
   overflow: auto;
   position: relative;
   background-color: var(--bg-app);
-  overscroll-behavior: contain;
+  overscroll-behavior: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 .gantt-timeline-scale-primary {
