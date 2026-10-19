@@ -5,6 +5,7 @@ class GanttChart {
     this.collapsedCategories = new Set();
     this.columnWidth = 36; // px per unit
     this.rowHeight = 44; // px per row
+    this.sidebarWidth = 380;
     this.startDate = null;
     this.endDate = null;
     this.datesList = [];
@@ -132,50 +133,45 @@ class GanttChart {
     const totalHeight = this.visibleRows.length * this.rowHeight;
 
     // Preserve scroll coordinates across re-renders
-    const existingSidebar = document.getElementById('ganttSidebarBody');
-    const existingTimelineBody = document.getElementById('ganttTimelineBodyContainer');
-    const savedScrollTop = existingTimelineBody ? existingTimelineBody.scrollTop : (existingSidebar ? existingSidebar.scrollTop : (this.lastScrollTop !== undefined ? this.lastScrollTop : null));
-    const savedScrollLeft = existingTimelineBody ? existingTimelineBody.scrollLeft : (this.lastScrollLeft !== undefined ? this.lastScrollLeft : null);
+    const existingViewport = document.getElementById('ganttViewport');
+    const savedScrollTop = existingViewport ? existingViewport.scrollTop : (this.lastScrollTop !== undefined ? this.lastScrollTop : null);
+    const savedScrollLeft = existingViewport ? existingViewport.scrollLeft : (this.lastScrollLeft !== undefined ? this.lastScrollLeft : null);
 
     this.container.innerHTML = `
-      <div class="gantt-wrapper">
-        <!-- Sidebar -->
-        <div class="gantt-sidebar" id="ganttSidebar">
-          <div class="gantt-sidebar-header">
+      <div class="gantt-viewport" id="ganttViewport" style="--sidebar-width: ${this.sidebarWidth || 380}px;">
+        <div class="gantt-canvas" id="ganttCanvas">
+          <!-- Cell (1, 1): Top-Left Corner Header (Sticky Top & Left) -->
+          <div class="gantt-corner-header" id="ganttCornerHeader">
             <span>Tasks & Milestones (${tasks.length})</span>
             <button class="btn btn-secondary" id="ganttCollapseAllBtn" style="padding: 2px 8px; font-size: 0.72rem;">
               Toggle All
             </button>
+            <div class="gantt-resizer" id="ganttCornerResizer"></div>
           </div>
-          <div class="gantt-sidebar-body" id="ganttSidebarBody">
-            ${this.renderSidebarRows()}
-            <div id="ganttSidebarSpacer" style="height: 36px;"></div>
-          </div>
-        </div>
 
-        <!-- Resizer -->
-        <div class="gantt-resizer" id="ganttResizer"></div>
-
-        <!-- Timeline Panel -->
-        <div class="gantt-timeline-panel" id="ganttTimelinePanel">
-          <!-- Fixed Horizontal Header -->
-          <div class="gantt-timeline-header-container" id="ganttTimelineHeaderContainer">
+          <!-- Cell (1, 2): Top-Right Timeline Header (Sticky Top) -->
+          <div class="gantt-timeline-header-sticky" id="ganttTimelineHeaderSticky" style="width: ${totalWidth}px;">
             <div class="gantt-timeline-header-inner" style="width: ${totalWidth}px;">
               ${this.renderTimelineHeader()}
             </div>
           </div>
 
-          <!-- Synchronized Scrollable Timeline Body -->
-          <div class="gantt-timeline-body-container" id="ganttTimelineBodyContainer">
-            <div class="gantt-timeline-body" id="ganttTimelineBody" style="width: ${totalWidth}px; height: ${totalHeight}px;">
-              ${this.renderGridColumns(totalHeight)}
-              ${this.renderMarkers(weddingDateStr, totalHeight)}
-              <svg class="gantt-dependency-svg" id="ganttDependencySvg" style="width: ${totalWidth}px; height: ${totalHeight}px;"></svg>
-              <div class="gantt-bars-layer">
-                ${this.renderTimelineRows()}
-              </div>
+          <!-- Cell (2, 1): Bottom-Left Sidebar (Sticky Left) -->
+          <div class="gantt-sidebar gantt-sidebar-sticky" id="ganttSidebarSticky">
+            <div class="gantt-sidebar-body" id="ganttSidebarBody">
+              ${this.renderSidebarRows()}
             </div>
-            <div id="ganttTimelineSpacer" style="height: 36px;"></div>
+            <div class="gantt-resizer" id="ganttResizer"></div>
+          </div>
+
+          <!-- Cell (2, 2): Bottom-Right Timeline Body -->
+          <div class="gantt-timeline-body" id="ganttTimelineBody" style="width: ${totalWidth}px; height: ${totalHeight}px;">
+            ${this.renderGridColumns(totalHeight)}
+            ${this.renderMarkers(weddingDateStr, totalHeight)}
+            <svg class="gantt-dependency-svg" id="ganttDependencySvg" style="width: ${totalWidth}px; height: ${totalHeight}px;"></svg>
+            <div class="gantt-bars-layer">
+              ${this.renderTimelineRows()}
+            </div>
           </div>
         </div>
       </div>
@@ -184,19 +180,11 @@ class GanttChart {
     this.attachDomHandlers();
     this.drawDependencies();
 
-    if (savedScrollLeft !== null) {
-      const newTimelineBody = document.getElementById('ganttTimelineBodyContainer');
-      const newTimelineHeader = document.getElementById('ganttTimelineHeaderContainer');
-      const newSidebar = document.getElementById('ganttSidebarBody');
-      if (newTimelineBody) {
-        newTimelineBody.scrollLeft = savedScrollLeft;
-        newTimelineBody.scrollTop = savedScrollTop || 0;
-      }
-      if (newTimelineHeader) {
-        newTimelineHeader.scrollLeft = savedScrollLeft;
-      }
-      if (newSidebar) {
-        newSidebar.scrollTop = savedScrollTop || 0;
+    if (savedScrollLeft !== null || savedScrollTop !== null) {
+      const newViewport = document.getElementById('ganttViewport');
+      if (newViewport) {
+        if (savedScrollLeft !== null) newViewport.scrollLeft = savedScrollLeft;
+        if (savedScrollTop !== null) newViewport.scrollTop = savedScrollTop;
       }
     } else {
       this.scrollToToday();
@@ -413,47 +401,12 @@ class GanttChart {
   }
 
   attachDomHandlers() {
-    // Synchronize scrolling between sidebar and timeline without feedback loops
-    const sidebar = document.getElementById('ganttSidebarBody');
-    const timelineBody = document.getElementById('ganttTimelineBodyContainer');
-    const timelineHeader = document.getElementById('ganttTimelineHeaderContainer');
-
-    if (sidebar && timelineBody) {
-      // Ensure identical scroll headroom by matching horizontal scrollbar height
-      const syncHeadroom = () => {
-        const scrollbarH = timelineBody.offsetHeight - timelineBody.clientHeight;
-        const sidebarSpacer = document.getElementById('ganttSidebarSpacer');
-        if (sidebarSpacer) {
-          sidebarSpacer.style.height = `${36 + Math.max(0, scrollbarH)}px`;
-        }
-      };
-      syncHeadroom();
-
-      sidebar.addEventListener('scroll', () => {
-        this.lastScrollTop = sidebar.scrollTop;
-        if (sidebar._programmaticScroll) {
-          sidebar._programmaticScroll = false;
-          return;
-        }
-        timelineBody._programmaticScroll = true;
-        timelineBody.scrollTop = sidebar.scrollTop;
-      }, { passive: true });
-
-      timelineBody.addEventListener('scroll', () => {
-        this.lastScrollTop = timelineBody.scrollTop;
-        this.lastScrollLeft = timelineBody.scrollLeft;
-
-        // Keep horizontal date header locked with timeline body
-        if (timelineHeader) {
-          timelineHeader.scrollLeft = timelineBody.scrollLeft;
-        }
-
-        if (timelineBody._programmaticScroll) {
-          timelineBody._programmaticScroll = false;
-          return;
-        }
-        sidebar._programmaticScroll = true;
-        sidebar.scrollTop = timelineBody.scrollTop;
+    // Track scroll position on the single unified viewport
+    const viewport = document.getElementById('ganttViewport');
+    if (viewport) {
+      viewport.addEventListener('scroll', () => {
+        this.lastScrollTop = viewport.scrollTop;
+        this.lastScrollLeft = viewport.scrollLeft;
       }, { passive: true });
     }
 
@@ -682,25 +635,39 @@ class GanttChart {
     }
 
     // Resizer between sidebar and timeline
-    const resizer = document.getElementById('ganttResizer');
-    const sidebarEl = document.getElementById('ganttSidebar');
-    if (resizer && sidebarEl) {
+    const resizers = this.container.querySelectorAll('.gantt-resizer');
+    const viewportEl = document.getElementById('ganttViewport');
+    if (resizers.length > 0 && viewportEl) {
       let isResizing = false;
-      resizer.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        resizer.classList.add('active');
-        document.body.style.cursor = 'col-resize';
+      let startX = 0;
+      let startWidth = 0;
+
+      resizers.forEach(resizer => {
+        resizer.addEventListener('mousedown', (e) => {
+          isResizing = true;
+          startX = e.clientX;
+          startWidth = this.sidebarWidth || 380;
+          resizers.forEach(r => r.classList.add('active'));
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+          e.preventDefault();
+        });
       });
+
       window.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
-        const newWidth = Math.max(260, Math.min(600, e.clientX));
-        sidebarEl.style.width = `${newWidth}px`;
+        const deltaX = e.clientX - startX;
+        const newWidth = Math.max(260, Math.min(650, startWidth + deltaX));
+        this.sidebarWidth = newWidth;
+        viewportEl.style.setProperty('--sidebar-width', `${newWidth}px`);
       });
+
       window.addEventListener('mouseup', () => {
         if (isResizing) {
           isResizing = false;
-          resizer.classList.remove('active');
+          resizers.forEach(r => r.classList.remove('active'));
           document.body.style.cursor = '';
+          document.body.style.userSelect = '';
         }
       });
     }
@@ -899,15 +866,13 @@ class GanttChart {
   }
 
   scrollToToday() {
-    const timelineBody = document.getElementById('ganttTimelineBodyContainer');
-    const timelineHeader = document.getElementById('ganttTimelineHeaderContainer');
-    if (!timelineBody) return;
+    const viewport = document.getElementById('ganttViewport');
+    if (!viewport) return;
     const todayStr = new Date().toISOString().split('T')[0];
     const todayX = this.dateToX(todayStr);
     if (todayX > 300) {
       const scrollPos = todayX - 200;
-      timelineBody.scrollLeft = scrollPos;
-      if (timelineHeader) timelineHeader.scrollLeft = scrollPos;
+      viewport.scrollLeft = scrollPos;
       this.lastScrollLeft = scrollPos;
     }
   }
