@@ -28,6 +28,24 @@ class GanttChart {
     this.onReorderTasks = onReorderTasks;
   }
 
+  // Parse YYYY-MM-DD into a local midnight Date object (safe from timezone & UTC shifts)
+  parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return dateStr;
+    const parts = String(dateStr).split('T')[0].split('-').map(Number);
+    if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return null;
+    return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+  }
+
+  // Format a Date object to YYYY-MM-DD using local calendar year, month, and day
+  formatLocalDate(date) {
+    if (!date || isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
   // Calculate timeline date range based on tasks, today, and wedding date
   computeDateRange(tasks, weddingDateStr) {
     let minTime = Infinity;
@@ -39,17 +57,18 @@ class GanttChart {
     maxTime = Math.max(maxTime, today.getTime());
 
     if (weddingDateStr) {
-      const wDate = new Date(weddingDateStr);
-      wDate.setHours(0, 0, 0, 0);
-      minTime = Math.min(minTime, wDate.getTime());
-      maxTime = Math.max(maxTime, wDate.getTime());
+      const wDate = this.parseLocalDate(weddingDateStr);
+      if (wDate) {
+        minTime = Math.min(minTime, wDate.getTime());
+        maxTime = Math.max(maxTime, wDate.getTime());
+      }
     }
 
     for (const t of tasks) {
-      const s = new Date(t.start_date).getTime();
-      const e = new Date(t.end_date).getTime();
-      if (!isNaN(s)) minTime = Math.min(minTime, s);
-      if (!isNaN(e)) maxTime = Math.max(maxTime, e);
+      const s = this.parseLocalDate(t.start_date);
+      const e = this.parseLocalDate(t.end_date);
+      if (s) minTime = Math.min(minTime, s.getTime());
+      if (e) maxTime = Math.max(maxTime, e.getTime());
     }
 
     // Default padding: 14 days before min, 30 days after max
@@ -78,23 +97,22 @@ class GanttChart {
     }
   }
 
-  // Convert Date to X coordinate in pixels
+  // Convert Date string (YYYY-MM-DD) to X coordinate in pixels
   dateToX(dateStr) {
-    const d = new Date(dateStr);
-    d.setHours(0, 0, 0, 0);
+    const d = this.parseLocalDate(dateStr);
+    if (!d) return 0;
     const startTime = this.startDate.getTime();
     const targetTime = d.getTime();
-    const days = (targetTime - startTime) / (1000 * 60 * 60 * 24);
+    const days = Math.round((targetTime - startTime) / (1000 * 60 * 60 * 24));
     return days * this.columnWidth;
   }
 
   // Convert X pixel coordinate back to Date string (YYYY-MM-DD)
   xToDate(x) {
-    const startTime = this.startDate.getTime();
     const days = Math.round(x / this.columnWidth);
-    const targetTime = startTime + days * 24 * 60 * 60 * 1000;
-    const res = new Date(targetTime);
-    return res.toISOString().split('T')[0];
+    const target = new Date(this.startDate);
+    target.setDate(target.getDate() + days);
+    return this.formatLocalDate(target);
   }
 
   render(tasks, weddingDateStr) {
@@ -330,7 +348,7 @@ class GanttChart {
     const markers = [];
 
     // Today Marker
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = this.formatLocalDate(new Date());
     const todayX = this.dateToX(todayStr);
     if (todayX >= 0) {
       markers.push(`
@@ -747,9 +765,9 @@ class GanttChart {
     tip.style.top = `${y}px`;
     tip.style.display = 'block';
 
-    const d1 = new Date(startDate);
-    const d2 = new Date(endDate);
-    const days = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+    const d1 = this.parseLocalDate(startDate);
+    const d2 = this.parseLocalDate(endDate);
+    const days = d1 && d2 ? Math.max(1, Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1) : 1;
     tip.textContent = `${startDate} → ${endDate} (${days} ${days === 1 ? 'day' : 'days'})`;
   }
 
@@ -769,29 +787,39 @@ class GanttChart {
       barEl.style.left = `${newLeft}px`;
 
       const newStartDate = this.xToDate(newLeft);
-      const originalDurationDays = (new Date(task.end_date) - new Date(task.start_date)) / (1000 * 60 * 60 * 24);
-      const tempDate = new Date(newStartDate);
-      tempDate.setDate(tempDate.getDate() + Math.max(0, originalDurationDays));
-      const newEndDate = tempDate.toISOString().split('T')[0];
+      const sDate = this.parseLocalDate(task.start_date);
+      const eDate = this.parseLocalDate(task.end_date);
+      const durationDays = sDate && eDate ? Math.max(0, Math.round((eDate.getTime() - sDate.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+
+      const tempDate = this.parseLocalDate(newStartDate);
+      tempDate.setDate(tempDate.getDate() + durationDays);
+      const newEndDate = this.formatLocalDate(tempDate);
 
       this.dragState.currentStartDate = newStartDate;
       this.dragState.currentEndDate = newEndDate;
       this.showDragTooltip(e.clientX, e.clientY, newStartDate, newEndDate);
     } else if (type === 'resize-right') {
-      const newWidth = Math.max(20, initialWidth + deltaX);
+      const newWidth = Math.max(this.columnWidth, initialWidth + deltaX);
       barEl.style.width = `${newWidth}px`;
 
-      const newEndDate = this.xToDate(initialLeft + newWidth);
+      const spanDays = Math.max(1, Math.round(newWidth / this.columnWidth));
+      const tempDate = this.parseLocalDate(task.start_date);
+      tempDate.setDate(tempDate.getDate() + spanDays - 1);
+      const newEndDate = this.formatLocalDate(tempDate);
+
       this.dragState.currentStartDate = task.start_date;
       this.dragState.currentEndDate = newEndDate;
       this.showDragTooltip(e.clientX, e.clientY, task.start_date, newEndDate);
     } else if (type === 'resize-left') {
       const newLeft = initialLeft + deltaX;
-      const newWidth = Math.max(20, initialWidth - deltaX);
+      const newWidth = Math.max(this.columnWidth, initialWidth - deltaX);
       barEl.style.left = `${newLeft}px`;
       barEl.style.width = `${newWidth}px`;
 
-      const newStartDate = this.xToDate(newLeft);
+      let newStartDate = this.xToDate(newLeft);
+      if (newStartDate > task.end_date) {
+        newStartDate = task.end_date;
+      }
       this.dragState.currentStartDate = newStartDate;
       this.dragState.currentEndDate = task.end_date;
       this.showDragTooltip(e.clientX, e.clientY, newStartDate, task.end_date);
@@ -807,7 +835,7 @@ class GanttChart {
     if (currentStartDate && currentEndDate && this.onTaskChange) {
       let finalStart = currentStartDate;
       let finalEnd = currentEndDate;
-      if (new Date(finalStart) > new Date(finalEnd)) {
+      if (finalStart > finalEnd) {
         finalEnd = finalStart;
       }
       this.onTaskChange(taskId, { start_date: finalStart, end_date: finalEnd });
@@ -868,7 +896,7 @@ class GanttChart {
   scrollToToday() {
     const viewport = document.getElementById('ganttViewport');
     if (!viewport) return;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = this.formatLocalDate(new Date());
     const todayX = this.dateToX(todayStr);
     if (todayX > 300) {
       const scrollPos = todayX - 200;

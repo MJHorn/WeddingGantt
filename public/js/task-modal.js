@@ -126,7 +126,8 @@ class TaskModal {
       datalist.innerHTML = existing.map(c => `<option value="${c}">`).join('');
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     // Populate Fields
     document.getElementById('taskTitle').value = task ? task.title : '';
